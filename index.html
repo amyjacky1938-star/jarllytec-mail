@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+ <title>掛號信簽收系統</title>
+ <script src="https://unpkg.com/html5-qrcode"></script>
+ <script src="https://cdn.tailwindcss.com"></script>
+ 
+ <script>
+   // 🔗 已設定好 API 連結
+   const READ_API = "https://default5e08b912309f4900b9e179fae11d8e.2a.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/40772db02b164c0a929df22ee11b6195/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=xsJyklaGAHtQalyMsjpYa6HuGP4oAb49nYC3JcbGLw8";
+   const WEBHOOK_URL = "https://default5e08b912309f4900b9e179fae11d8e.2a.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/59040956dd24473390b5f60bad5d0213/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Lp4ZIwMltIqhPPe8bR_UzKEnZCoUu3X3eFbtHAJookY";
+ </script>
+ 
+ <style>
+   body { background-color: #f8fafc; font-family: -apple-system, sans-serif; }
+   #sig-canvas { touch-action: none; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+ </style>
+</head>
+<body class="max-w-md mx-auto p-4">
+
+ <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 mb-6">
+   <h1 class="text-xl font-black text-slate-800">📬 掛號信簽收</h1>
+   <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mt-1">Jarllytec Mail System</p>
+ </div>
+
+ <div class="bg-white p-6 rounded-3xl shadow-sm mb-6 border border-slate-100">
+   <button onclick="startScanner()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl active:scale-95 transition-transform">
+     📷 掃描信件條碼
+   </button>
+   <div id="reader" class="hidden w-full mt-4 rounded-xl overflow-hidden"></div>
+   <input type="text" id="resBarcode" readonly placeholder="掃描後顯示單號" class="w-full mt-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-bold text-blue-600 outline-none">
+ </div>
+
+ <div id="infoSection" class="hidden bg-white p-6 rounded-3xl shadow-sm mb-6 border border-slate-100 space-y-4">
+   <div class="space-y-1">
+     <label class="text-[10px] text-slate-400 font-black uppercase">應收件人</label>
+     <input type="text" id="resName" readonly class="w-full font-bold text-slate-800">
+   </div>
+   <div class="space-y-1">
+     <label class="text-[10px] text-slate-400 font-black uppercase">部門</label>
+     <input type="text" id="resDept" readonly class="w-full font-bold text-blue-600">
+   </div>
+   <div class="space-y-1">
+     <label class="text-[10px] text-slate-400 font-black uppercase">信件說明</label>
+     <input type="text" id="resDesc" readonly class="w-full font-bold text-slate-600">
+   </div>
+ </div>
+
+ <div id="sig-section" class="hidden bg-white p-6 rounded-3xl shadow-sm mb-6 border border-slate-100">
+   <div class="flex justify-between items-center mb-2">
+     <label class="text-[10px] text-slate-400 font-black uppercase">請手寫簽名</label>
+     <button onclick="clearCanvas()" class="text-[10px] text-red-500 font-black">清除</button>
+   </div>
+   <canvas id="sig-canvas" width="340" height="150" class="w-full"></canvas>
+   <button onclick="submitSignin()" class="w-full mt-6 bg-green-600 text-white font-black py-4 rounded-2xl active:scale-95 transition-transform">
+     ✅ 確認簽收
+   </button>
+ </div>
+
+<script>
+  let canvas = document.getElementById('sig-canvas');
+  let ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+  canvas.addEventListener("touchstart", (e) => { drawing = true; ctx.beginPath(); ctx.moveTo(e.touches[0].clientX - canvas.getBoundingClientRect().left, e.touches[0].clientY - canvas.getBoundingClientRect().top); });
+  canvas.addEventListener("touchmove", (e) => { if(drawing) { ctx.lineTo(e.touches[0].clientX - canvas.getBoundingClientRect().left, e.touches[0].clientY - canvas.getBoundingClientRect().top); ctx.stroke(); } });
+  canvas.addEventListener("touchend", () => drawing = false);
+
+  function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+  function startScanner() {
+    document.getElementById('reader').classList.remove('hidden');
+    const html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (barcode) => {
+      // 💡 關鍵修改：只取前 6 碼
+      const keyNumber = barcode.trim().substring(0, 6);
+      
+      html5QrCode.stop().then(() => { 
+        document.getElementById('reader').classList.add('hidden');
+        fetchData(keyNumber);
+      });
+    });
+  }
+
+  async function fetchData(barcode) {
+    const res = await fetch(READ_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode: barcode })
+    });
+    const data = await res.json();
+    // 假設 Power Automate 回傳資料結構如下
+    if(data) {
+      document.getElementById('resBarcode').value = barcode;
+      document.getElementById('resName').value = data.name || data.username || "無姓名";
+      document.getElementById('resDept').value = data.dept || "無部門";
+      document.getElementById('resDesc').value = data.desc || data.mailDesc || "掛號信";
+      document.getElementById('infoSection').classList.remove('hidden');
+      document.getElementById('sig-section').classList.remove('hidden');
+    } else { alert("查無資料，請確認條碼是否正確"); }
+  }
+
+  async function submitSignin() {
+    const payload = {
+      barcode: document.getElementById('resBarcode').value,
+      username: document.getElementById('resName').value,
+      signature: canvas.toDataURL("image/png"),
+      timestamp: new Date().toLocaleString()
+    };
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    alert("簽收成功！");
+    location.reload();
+  }
+</script>
+</body>
+</html>
