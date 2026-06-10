@@ -103,12 +103,15 @@
     });
   }
 
-  async function fetchData(barcode) {
-    const res = await fetch(READ_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ barcode: barcode })
-    });
+async function fetchData(barcode) {
+  const res = await fetch(READ_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    // 這裡一定要對應到你剛設定的 "barcode"
+    body: JSON.stringify({ barcode: barcode }) 
+  });
+  // ...後面程式碼...
+}
     const data = await res.json();
     
     if (data.status === "signed") {
