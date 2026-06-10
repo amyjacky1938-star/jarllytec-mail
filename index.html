@@ -8,7 +8,7 @@
  <script src="https://cdn.tailwindcss.com"></script>
  
  <script>
-   // 🔗 已設定好 API 連結
+   // 🔗 API 連結 (請確保這裡的連結與你 Power Automate 設定的一致)
    const READ_API = "https://default5e08b912309f4900b9e179fae11d8e.2a.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/40772db02b164c0a929df22ee11b6195/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=xsJyklaGAHtQalyMsjpYa6HuGP4oAb49nYC3JcbGLw8";
    const WEBHOOK_URL = "https://default5e08b912309f4900b9e179fae11d8e.2a.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/59040956dd24473390b5f60bad5d0213/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=Lp4ZIwMltIqhPPe8bR_UzKEnZCoUu3X3eFbtHAJookY";
  </script>
@@ -80,7 +80,6 @@
 
   function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
-  // ✅ 手動查詢功能
   function manualSubmit() {
     const manualVal = document.getElementById('manualBarcode').value.trim();
     if (manualVal.length >= 6) {
@@ -103,32 +102,34 @@
     });
   }
 
-async function fetchData(barcode) {
-  const res = await fetch(READ_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    // 這裡一定要對應到你剛設定的 "barcode"
-    body: JSON.stringify({ barcode: barcode }) 
-  });
-  // ...後面程式碼...
-}
-    const data = await res.json();
-    
-    if (data.status === "signed") {
-      alert("❌ 此掛號單號已被簽收，請勿重複作業！");
-      location.reload();
-      return; 
-    }
+  async function fetchData(barcode) {
+    try {
+      const res = await fetch(READ_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode: barcode })
+      });
+      const data = await res.json();
+      
+      if (data.status === "signed") {
+        alert("❌ 此掛號單號已被簽收，請勿重複作業！");
+        location.reload();
+        return; 
+      }
 
-    if (data && data.status === "ready") {
-      document.getElementById('resBarcode').value = barcode;
-      document.getElementById('resName').value = data.name || "無姓名";
-      document.getElementById('resDept').value = data.dept || "無部門";
-      document.getElementById('resDesc').value = data.desc || "掛號信";
-      document.getElementById('infoSection').classList.remove('hidden');
-      document.getElementById('sig-section').classList.remove('hidden');
-    } else {
-      alert("查無此單號資料");
+      if (data && data.status === "ready") {
+        document.getElementById('resBarcode').value = barcode;
+        document.getElementById('resName').value = data.name || "無姓名";
+        document.getElementById('resDept').value = data.dept || "無部門";
+        document.getElementById('resDesc').value = data.desc || "掛號信";
+        document.getElementById('infoSection').classList.remove('hidden');
+        document.getElementById('sig-section').classList.remove('hidden');
+      } else {
+        alert("查無此單號資料");
+      }
+    } catch (err) {
+      alert("連線發生錯誤，請稍後再試。");
+      console.error(err);
     }
   }
 
