@@ -85,23 +85,32 @@
     });
   }
 
-  async function fetchData(barcode) {
-    const res = await fetch(READ_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ barcode: barcode })
-    });
-    const data = await res.json();
-    // 假設 Power Automate 回傳資料結構如下
-    if(data) {
-      document.getElementById('resBarcode').value = barcode;
-      document.getElementById('resName').value = data.name || data.username || "無姓名";
-      document.getElementById('resDept').value = data.dept || "無部門";
-      document.getElementById('resDesc').value = data.desc || data.mailDesc || "掛號信";
-      document.getElementById('infoSection').classList.remove('hidden');
-      document.getElementById('sig-section').classList.remove('hidden');
-    } else { alert("查無資料，請確認條碼是否正確"); }
+async function fetchData(barcode) {
+  const res = await fetch(READ_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ barcode: barcode })
+  });
+  const data = await res.json();
+  
+  // ✅ 新增：檢查後端回傳的狀態
+  if (data.status === "signed") {
+    alert("❌ 此掛號單號已被簽收，請勿重複作業！");
+    location.reload(); // 重整頁面
+    return; 
   }
+
+  if (data && data.status === "ready") {
+    document.getElementById('resBarcode').value = barcode;
+    document.getElementById('resName').value = data.name || "無姓名";
+    document.getElementById('resDept').value = data.dept || "無部門";
+    document.getElementById('resDesc').value = data.desc || "掛號信";
+    document.getElementById('infoSection').classList.remove('hidden');
+    document.getElementById('sig-section').classList.remove('hidden');
+  } else {
+    alert("查無此單號資料");
+  }
+}
 
   async function submitSignin() {
     const payload = {
