@@ -30,6 +30,15 @@
      📷 掃描信件條碼
    </button>
    <div id="reader" class="hidden w-full mt-4 rounded-xl overflow-hidden"></div>
+   
+   <div class="mt-6 pt-6 border-t border-slate-100">
+     <p class="text-xs text-slate-400 font-black mb-2 text-center">掃描失敗？改用手動輸入：</p>
+     <div class="flex gap-2">
+       <input type="text" id="manualBarcode" placeholder="輸入 6 位單號" class="flex-1 p-3 bg-slate-50 border border-slate-100 rounded-xl font-bold text-center outline-blue-500">
+       <button onclick="manualSubmit()" class="bg-slate-800 text-white px-6 rounded-xl font-black">查詢</button>
+     </div>
+   </div>
+
    <input type="text" id="resBarcode" readonly placeholder="掃描後顯示單號" class="w-full mt-4 p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono font-bold text-blue-600 outline-none">
  </div>
 
@@ -71,46 +80,54 @@
 
   function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
 
+  // ✅ 手動查詢功能
+  function manualSubmit() {
+    const manualVal = document.getElementById('manualBarcode').value.trim();
+    if (manualVal.length >= 6) {
+      fetchData(manualVal.substring(0, 6));
+    } else {
+      alert("請輸入正確的 6 位掛號單號！");
+    }
+  }
+
   function startScanner() {
     document.getElementById('reader').classList.remove('hidden');
+    const config = { fps: 15, qrbox: { width: 250, height: 150 }, aspectRatio: 1.77 };
     const html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (barcode) => {
-      // 💡 關鍵修改：只取前 6 碼
-      const keyNumber = barcode.trim().substring(0, 6);
-      
+    html5QrCode.start({ facingMode: "environment" }, config, (barcode) => {
+      const cleanBarcode = barcode.replace(/\s+/g, '').substring(0, 6);
       html5QrCode.stop().then(() => { 
         document.getElementById('reader').classList.add('hidden');
-        fetchData(keyNumber);
+        fetchData(cleanBarcode);
       });
     });
   }
 
-async function fetchData(barcode) {
-  const res = await fetch(READ_API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ barcode: barcode })
-  });
-  const data = await res.json();
-  
-  // ✅ 新增：檢查後端回傳的狀態
-  if (data.status === "signed") {
-    alert("❌ 此掛號單號已被簽收，請勿重複作業！");
-    location.reload(); // 重整頁面
-    return; 
-  }
+  async function fetchData(barcode) {
+    const res = await fetch(READ_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ barcode: barcode })
+    });
+    const data = await res.json();
+    
+    if (data.status === "signed") {
+      alert("❌ 此掛號單號已被簽收，請勿重複作業！");
+      location.reload();
+      return; 
+    }
 
-  if (data && data.status === "ready") {
-    document.getElementById('resBarcode').value = barcode;
-    document.getElementById('resName').value = data.name || "無姓名";
-    document.getElementById('resDept').value = data.dept || "無部門";
-    document.getElementById('resDesc').value = data.desc || "掛號信";
-    document.getElementById('infoSection').classList.remove('hidden');
-    document.getElementById('sig-section').classList.remove('hidden');
-  } else {
-    alert("查無此單號資料");
+    if (data && data.status === "ready") {
+      document.getElementById('resBarcode').value = barcode;
+      document.getElementById('resName').value = data.name || "無姓名";
+      document.getElementById('resDept').value = data.dept || "無部門";
+      document.getElementById('resDesc').value = data.desc || "掛號信";
+      document.getElementById('infoSection').classList.remove('hidden');
+      document.getElementById('sig-section').classList.remove('hidden');
+    } else {
+      alert("查無此單號資料");
+    }
   }
-}
 
   async function submitSignin() {
     const payload = {
